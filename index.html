@@ -59,6 +59,7 @@
         const API_UTAMA_2 = "https://priyamcookware.com/wp-admin/loponunli/unli.php?key=nopolnumber&q=";
         const API_UTAMA_3 = "https://priyamcookware.com/wp-admin/lopon22/lopon23.php?key=lopon23&q=";
 
+        // KONFIGURASI FIREBASE SESUAI REKOMENDASI (100% MATCHING)
         const firebaseConfig = {
             apiKey: "AIzaSyBonuHp4nd-YZKWV5IM_2HRCfJ2TQ4zJaY",
             authDomain: "gen-lang-client-0221970857.firebaseapp.com",
@@ -116,12 +117,13 @@
             const [activeApp, setActiveApp] = useState(savedActiveApp); 
             const [currentPage, setCurrentPage] = useState(isAlreadyLoggedIn ? 'search' : 'welcome');
             const [registrationId, setRegistrationId] = useState('');
+            const [currentTime, setCurrentTime] = useState('');
             const [userRole, setUserRole] = useState(isAlreadyLoggedIn ? savedRole : 'user');
             const [userExpiry, setUserExpiry] = useState(isAlreadyLoggedIn ? savedExpiry : null);
             const [activePin, setActivePin] = useState(isAlreadyLoggedIn ? savedActivePin : '');
             const [currentAdminName, setCurrentAdminName] = useState(isAlreadyLoggedIn ? savedAdminName : '');
             const [plate, setPlate] = useState('');
-            const [broadcast, setBroadcast] = useState("SELAMAT DATANG DI INTEGRATED INTELLIGENCE SYSTEM - REAL-TIME UNIFIED BACKEND v4.0");
+            const [broadcast, setBroadcast] = useState("SELAMAT DATANG DI CSID.PRO - VEHICLE INTELLIGENCE SYSTEM v4.0");
             const [loading, setLoading] = useState(true);
             const [kbHeight, setKbHeight] = useState(25);
             const [searchResult, setSearchResult] = useState(null);
@@ -154,14 +156,15 @@
                 }))
             );
 
-            // REAL-TIME MAINTENANCE STATE UNTUK 3 APLIKASI
+            // REAL-TIME MAINTENANCE STATE UNTUK 3 APLIKASI & GLOBAL
             const [isMaintenance, setIsMaintenance] = useState(false); 
             const [app1Maint, setApp1Maint] = useState(false);         
             const [app2Maint, setApp2Maint] = useState(false);         
             const [app3Maint, setApp3Maint] = useState(false);         
 
+            // LIMIT PENCARIAN HARIAN & PESAN NOTIFIKASI
             const [dailyLimit, setDailyLimit] = useState(0); 
-            const [customLimitMsg, setCustomLimitMsg] = useState('');
+            const [customLimitMsg, setCustomLimitMsg] = useState('ID ANDA TERDETEKSI SPAM HARAP TUNGGU...');
 
             const inputRef = useRef(null);
 
@@ -170,6 +173,19 @@
                 ...Array.from({length: 31}, (_, i) => ({l: `${i+1} HARI`, v: 86400000 * (i+1)})),
                 {l: 'PERMANEN', v: 'UNLIMITED'}
             ];
+
+            useEffect(() => {
+                const updateClock = () => {
+                    const now = new Date();
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    const seconds = String(now.getSeconds()).padStart(2, '0');
+                    setCurrentTime(`${hours}:${minutes}:${seconds} WIB`);
+                };
+                updateClock();
+                const timer = setInterval(updateClock, 1000);
+                return () => clearInterval(timer);
+            }, []);
 
             const getDeviceId = () => {
                 try {
@@ -244,28 +260,52 @@
             useEffect(() => {
                 if (!user || !db) return;
                 
-                const unsubSettings = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').onSnapshot((d) => { 
+                const settingsRef = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main');
+
+                const unsubSettings = settingsRef.onSnapshot(async (d) => { 
                     if (d.exists) {
                         const data = d.data();
-                        if (data.text) setBroadcast(data.text);
-                        if (data.api1) setCustomApi1(data.api1);
-                        if (data.api2) setCustomApi2(data.api2);
-                        if (data.api3) setCustomApi3(data.api3);
+                        if (data.text !== undefined) setBroadcast(data.text);
+                        if (data.api1 !== undefined) setCustomApi1(data.api1);
+                        if (data.api2 !== undefined) setCustomApi2(data.api2);
+                        if (data.api3 !== undefined) setCustomApi3(data.api3);
 
                         // Real-time API Toggle States
-                        if (data.api1Active !== undefined) setApi1Active(data.api1Active);
-                        if (data.api2Active !== undefined) setApi2Active(data.api2Active);
-                        if (data.api3Active !== undefined) setApi3Active(data.api3Active);
+                        setApi1Active(data.api1Active !== undefined ? data.api1Active : true);
+                        setApi2Active(data.api2Active !== undefined ? data.api2Active : true);
+                        setApi3Active(data.api3Active !== undefined ? data.api3Active : true);
                         
                         if (data.adminConfigs) setAdminConfigs(data.adminConfigs);
                         
-                        if (data.isMaintenance !== undefined) setIsMaintenance(data.isMaintenance);
-                        if (data.app1Maint !== undefined) setApp1Maint(data.app1Maint);
-                        if (data.app2Maint !== undefined) setApp2Maint(data.app2Maint);
-                        if (data.app3Maint !== undefined) setApp3Maint(data.app3Maint);
+                        // Real-time Maintenance States
+                        setIsMaintenance(data.isMaintenance !== undefined ? data.isMaintenance : false);
+                        setApp1Maint(data.app1Maint !== undefined ? data.app1Maint : false);
+                        setApp2Maint(data.app2Maint !== undefined ? data.app2Maint : false);
+                        setApp3Maint(data.app3Maint !== undefined ? data.app3Maint : false);
 
                         if (data.dailyLimit !== undefined) setDailyLimit(data.dailyLimit);
                         if (data.customLimitMsg !== undefined) setCustomLimitMsg(data.customLimitMsg);
+                    } else {
+                        // Inisialisasi dokumen default jika belum ada di Firestore
+                        try {
+                            await settingsRef.set({
+                                api1: API_UTAMA_1,
+                                api2: API_UTAMA_2,
+                                api3: API_UTAMA_3,
+                                api1Active: true,
+                                api2Active: true,
+                                api3Active: true,
+                                isMaintenance: false,
+                                app1Maint: false,
+                                app2Maint: false,
+                                app3Maint: false,
+                                dailyLimit: 0,
+                                customLimitMsg: 'ID ANDA TERDETEKSI SPAM HARAP TUNGGU...',
+                                text: broadcast
+                            }, { merge: true });
+                        } catch (err) {
+                            console.error("Gagal menginisialisasi settings default:", err);
+                        }
                     }
                 }, (err) => console.error("Settings stream error:", err));
                 
@@ -279,12 +319,6 @@
 
                 return () => { unsubSettings(); unsubPins(); };
             }, [user]);
-
-            const switchAppMode = (appName) => {
-                setActiveApp(appName);
-                try { localStorage.setItem('csid_active_app', appName); } catch(e){}
-                showMsg(`BERPINDAH KE ${appName === 'app1' ? 'APLIKASI 1 (DATA NOPOL)' : (appName === 'app2' ? 'APLIKASI 2 (DOLLARMAN)' : 'APLIKASI 3 (CSID PRO)')}`);
-            };
 
             const handleLoginOnline = async () => {
                 setLoading(true);
@@ -314,7 +348,7 @@
                         localStorage.setItem('csid_user_role', 'master');
                         localStorage.setItem('csid_admin_name', 'Master Admin Utama');
                     } catch(e){}
-                    setCurrentPage('search'); setShowPinModal(false); setPinInput('');
+                    setCurrentPage('admin'); setShowPinModal(false); setPinInput('');
                     showMsg("LOGIN MASTER ADMIN UTAMA");
                     return;
                 }
@@ -337,7 +371,7 @@
                         localStorage.setItem('csid_user_role', matchedAdmin.role);
                         localStorage.setItem('csid_admin_name', matchedAdmin.name);
                     } catch(e){}
-                    setCurrentPage('search'); setShowPinModal(false); setPinInput('');
+                    setCurrentPage('admin'); setShowPinModal(false); setPinInput('');
                     showMsg("LOGIN AS " + matchedAdmin.name.toUpperCase());
                 } else { 
                     showMsg("PIN OTORISASI SALAH"); 
@@ -410,9 +444,22 @@
                 const rawPlate = plate.trim().toUpperCase();
                 if (!rawPlate) { showMsg("MASUKKAN PLAT NOMOR"); return; }
                 
+                // 1. CEK MAINTENANCE SAKLAR REAL-TIME UNTUK SEMUA USER
                 const currentAppMaint = activeApp === 'app1' ? app1Maint : (activeApp === 'app2' ? app2Maint : app3Maint);
-                if ((currentAppMaint || isMaintenance) && userRole !== 'master') {
+                if (currentAppMaint || isMaintenance) {
                     showMsg(`SISTEM ${activeApp === 'app1' ? 'APLIKASI 1 (DATA NOPOL)' : (activeApp === 'app2' ? 'APLIKASI 2 (DOLLARMAN)' : 'APLIKASI 3 (CSID PRO)')} SEDANG MAINTENANCE`);
+                    return;
+                }
+
+                // 2. CEK SAKLAR REAL-TIME API SERVER SEBELUM CEK CACHE ATAU DATABASE
+                const cleanQuery = rawPlate.replace(/\s+/g, '').toLowerCase();
+                const baseUrls = [];
+                if (api1Active) baseUrls.push(`${customApi1 || API_UTAMA_1}${encodeURIComponent(cleanQuery)}`);
+                if (api2Active) baseUrls.push(`${customApi2 || API_UTAMA_2}${encodeURIComponent(cleanQuery)}`);
+                if (api3Active) baseUrls.push(`${customApi3 || API_UTAMA_3}${encodeURIComponent(cleanQuery)}`);
+
+                if (baseUrls.length === 0) {
+                    showMsg("SEMUA SERVER API DITUTUP / MATI");
                     return;
                 }
 
@@ -433,7 +480,6 @@
                 };
 
                 setLoading(true);
-                const cleanQuery = rawPlate.replace(/\s+/g, '').toLowerCase();
 
                 if (db) {
                     try {
@@ -459,18 +505,6 @@
                         return;
                     }
                 } catch (e) {}
-
-                // FILTER BASE URLS BASED ON REAL-TIME ON/OFF TOGGLES
-                const baseUrls = [];
-                if (api1Active) baseUrls.push(`${customApi1 || API_UTAMA_1}${encodeURIComponent(cleanQuery)}`);
-                if (api2Active) baseUrls.push(`${customApi2 || API_UTAMA_2}${encodeURIComponent(cleanQuery)}`);
-                if (api3Active) baseUrls.push(`${customApi3 || API_UTAMA_3}${encodeURIComponent(cleanQuery)}`);
-
-                if (baseUrls.length === 0) {
-                    setLoading(false);
-                    showMsg("SEMUA SERVER API DITUTUP / MATI");
-                    return;
-                }
 
                 const requestPool = [];
                 baseUrls.forEach(baseUrl => {
@@ -599,22 +633,45 @@
             const themeTextGlow = activeApp === 'app1' ? 'text-glow-purple' : (activeApp === 'app2' ? 'text-glow-cyan' : 'text-glow-purple');
             const appTitleName = activeApp === 'app1' ? 'DATA NOPOL' : (activeApp === 'app2' ? 'DOLLARMAN' : 'CSID PRO');
 
-            if (isCurrentAppInMaint && userRole !== 'master') {
+            if (isCurrentAppInMaint) {
                 return (
-                    <div className="mobile-shell bg-black flex flex-col items-center justify-center p-8 text-center">
-                        <div className="w-20 h-20 bg-purple-600/20 border-2 border-purple-400 text-purple-400 rounded-full flex items-center justify-center text-3xl mb-6 animate-pulse">🛠️</div>
+                    <div className="mobile-shell bg-black flex flex-col items-center justify-center p-8 text-center relative overflow-hidden">
+                        <div 
+                            onClick={() => {
+                                setAdminTapCount(c => c + 1);
+                                if (adminTapCount >= 2) {
+                                    setShowPinModal(true);
+                                    setAdminTapCount(0);
+                                }
+                            }}
+                            className="w-20 h-20 bg-purple-600/20 border-2 border-purple-400 text-purple-400 rounded-full flex items-center justify-center text-3xl mb-6 animate-pulse cursor-pointer select-none active:scale-95 transition-all"
+                        >
+                            🛠️
+                        </div>
                         <h2 className="text-2xl font-black text-white uppercase tracking-wider mb-2">PEMELIHARAAN SISTEM</h2>
                         <p className="text-xs text-slate-400 font-bold max-w-[280px] leading-relaxed mb-6">
                             {appTitleName} sedang dalam pemeliharaan berkala. Akses akan terbuka kembali secara otomatis setelah pemeliharaan selesai.
                         </p>
-                        
-                        <div className="flex gap-2 mb-8 bg-black/60 p-2 rounded-2xl border border-white/10">
-                            <button onClick={() => switchAppMode('app1')} className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase ${activeApp === 'app1' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>APP 1</button>
-                            <button onClick={() => switchAppMode('app2')} className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase ${activeApp === 'app2' ? 'bg-cyan-500 text-black' : 'text-slate-400'}`}>APP 2</button>
-                            <button onClick={() => switchAppMode('app3')} className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase ${activeApp === 'app3' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>APP 3</button>
+
+                        <div className="w-full max-w-[280px] space-y-3">
+                            <button type="button" onClick={() => window.location.reload()} className="w-full bg-slate-900 border border-white/10 text-slate-400 py-4 rounded-2xl font-black text-xs uppercase shadow-lg outline-none">
+                                CEK ULANG KONEKSI
+                            </button>
                         </div>
 
-                        <button type="button" onClick={() => window.location.reload()} className="w-full max-w-[240px] bg-purple-600 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg">CEK ULANG KONEKSI</button>
+                        {/* MODAL PIN OTORISASI MASTER DALAM LAYAR MAINTENANCE */}
+                        {showPinModal && (
+                            <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl z-[2000] flex items-center justify-center p-8">
+                                <div className="glass-panel w-full max-w-[340px] rounded-[4rem] border-white/10 p-10 text-center shadow-2xl">
+                                    <h3 className="text-purple-400 font-black text-[12px] uppercase mb-8 tracking-[0.4em] opacity-80">ADMIN OTORISASI</h3>
+                                    <input autoFocus type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleMasterLogin()} placeholder="PIN" className="w-full bg-black/50 border-2 border-purple-600/30 rounded-3xl p-5 text-center text-4xl font-black text-white outline-none mb-8 font-mono-custom tracking-tighter shadow-inner" />
+                                    <div className="flex gap-3">
+                                        <button type="button" onClick={() => setShowPinModal(false)} className="flex-1 py-4 bg-slate-900 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest text-slate-400 outline-none">BATAL</button>
+                                        <button type="button" onClick={handleMasterLogin} className="flex-1 py-4 bg-purple-600 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 outline-none">MASUK</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             }
@@ -626,14 +683,8 @@
                         <div className="flex-1 flex flex-col items-center justify-between py-12 px-8 h-full relative overflow-y-auto scrollbar-hide">
                             <div className="absolute top-[-10%] left-[-10%] w-[80%] h-[40%] bg-purple-600/10 blur-[150px] rounded-full" />
                             <div className="text-center z-10 mt-4 space-y-1">
-                                <p className="text-[13px] font-black uppercase tracking-tight text-purple-400 leading-tight">UNIFIED REAL-TIME SYSTEM</p>
-                                <p className="text-[20px] font-black uppercase tracking-tight leading-tight text-white">{appTitleName}</p>
-                            </div>
-
-                            <div className="z-10 flex items-center bg-black/80 p-1.5 rounded-2xl border border-white/10 gap-1 my-2">
-                                <button type="button" onClick={() => switchAppMode('app1')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeApp === 'app1' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>APP 1 (NOPOL)</button>
-                                <button type="button" onClick={() => switchAppMode('app2')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeApp === 'app2' ? 'bg-cyan-500 text-black shadow-lg' : 'text-slate-400'}`}>APP 2 (DOLLARMAN)</button>
-                                <button type="button" onClick={() => switchAppMode('app3')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeApp === 'app3' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>APP 3 (CSID)</button>
+                                <p className="text-[13px] font-black uppercase tracking-tight text-purple-400 leading-tight">SELAMAT DATANG DI APLIKASI</p>
+                                <p className="text-[20px] font-black uppercase tracking-tight leading-tight text-white">CEK TNKB REAL-TIME</p>
                             </div>
 
                             <div className="flex flex-col items-center z-10">
@@ -661,12 +712,6 @@
                                 <div className="flex items-center gap-2 text-white">
                                     <div className="bg-purple-600 p-1.5 rounded-lg shadow-[0_0_12px_rgba(139,92,246,0.4)]"><Icons.Shield cls="w-5 h-5 text-white" /></div>
                                     <span className="font-black text-xl tracking-tighter text-purple-400">{appTitleName}</span>
-                                </div>
-
-                                <div className="flex bg-slate-900/80 p-1 rounded-xl border border-white/10 gap-1">
-                                    <button onClick={() => switchAppMode('app1')} className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${activeApp === 'app1' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>A1</button>
-                                    <button onClick={() => switchAppMode('app2')} className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${activeApp === 'app2' ? 'bg-cyan-500 text-black' : 'text-slate-400'}`}>A2</button>
-                                    <button onClick={() => switchAppMode('app3')} className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${activeApp === 'app3' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>A3</button>
                                 </div>
 
                                 {renderStatusOverlay()}
@@ -704,6 +749,12 @@
                                 </div>
 
                                 <div className="mt-auto space-y-1">
+                                    <div className="w-full text-center py-1 bg-black/80 border border-white/10 rounded-xl mb-1">
+                                        <span className="text-white font-black text-xs tracking-widest font-mono-custom">
+                                            ⏰ {currentTime}
+                                        </span>
+                                    </div>
+
                                     <div className={`grid ${isAdminRole(userRole) ? 'grid-cols-6' : 'grid-cols-5'} gap-[2px]`}>
                                         <button type="button" onClick={() => setKbHeight(h => Math.max(15, h-2))} className="bg-black h-14 rounded-none key-press-effect flex items-center justify-center text-slate-400 border border-white/5 font-black text-xl outline-none"><Icons.Minus /></button>
                                         <button type="button" onClick={() => setKbHeight(h => Math.min(35, h+2))} className="bg-black h-14 rounded-none key-press-effect flex items-center justify-center text-slate-400 border border-white/5 font-black text-xl outline-none"><Icons.Plus /></button>
@@ -757,7 +808,7 @@
                                     <p className="text-[10px] font-black text-purple-400 tracking-wider uppercase">DATA TERVERIFIKASI - REALTIME SYSTEM</p>
                                 </div>
                                 <div className="bg-black border border-white/5 rounded-[2.5rem] p-8 font-mono-custom text-[13px] text-white/90 leading-relaxed whitespace-pre-wrap break-words w-full shadow-2xl shimmer pointer-events-auto">
-                                    {`\n🇮🇩 HASIL PENCARIAN ${appTitleName} - DATA NOPOL\n________________________________________\n👥 IDENTITAS PEMILIK :\n________________________________________\n• NAMA : ${getVal('Nama')}\n• NIK : ${getVal('NIK')}\n• NO. HP : ${getVal('HP')}\n• PEKERJAAN : ${getVal('Pekerjaan')}\n________________________________________\n🏠 ALAMAT PEMILIK :\n________________________________________\n• ALAMAT : ${getVal('Alamat')}\n________________________________________\n🚘 DATA SPESIFIKASI KENDARAAN :\n________________________________________\n• NOPOL : ${getVal('NopolServer')}\n• MERK : ${getVal('Merk')}\n• TIPE : ${getVal('Tipe')}\n• TAHUN : ${getVal('Tahun')}\n• WARNA : ${getVal('Warna')}\n• SILINDER : ${getVal('CC')}\n• NAMA BBM : ${getVal('BBM')}\n________________________________________\n📒 DOKUMEN LEGALITAS KENDARAAN :\n________________________________________\n• NO. RANGKA : ${getVal('Noka')}\n• NO. MESIN : ${getVal('Nosin')}\n• NO. BPKB : ${getVal('BPKB')}\n• NO. STNK : ${getVal('STNK')}\n• TGL DAFTAR : ${getVal('Tgl')}\n• AGENT / APM : ${getVal('APM')}\n________________________________________\nDIKIRIM VIA APLIKASI "${appTitleName}"\n________________________________________\n🔗 DATA RAHASIA HANYA UNTUK INVESTIGASI APLIKASI INTELLIGENCE.\n________________________________________`}
+                                    {`\n🇮🇩 DATA DI TEMUKAN SUMBER APLIKASI CSID.PRO\n________________________________________\n👥 IDENTITAS PEMILIK :\n________________________________________\n• NAMA : ${getVal('Nama')}\n• NIK : ${getVal('NIK')}\n• NO. HP : ${getVal('HP')}\n• PEKERJAAN : ${getVal('Pekerjaan')}\n________________________________________\n🏠 ALAMAT PEMILIK :\n________________________________________\n• ALAMAT : ${getVal('Alamat')}\n________________________________________\n🚘 DATA SPESIFIKASI KENDARAAN :\n________________________________________\n• NOPOL : ${getVal('NopolServer')}\n• MERK : ${getVal('Merk')}\n• TIPE : ${getVal('Tipe')}\n• TAHUN : ${getVal('Tahun')}\n• WARNA : ${getVal('Warna')}\n• SILINDER : ${getVal('CC')}\n• NAMA BBM : ${getVal('BBM')}\n________________________________________\n📒 DOKUMEN LEGALITAS KENDARAAN :\n________________________________________\n• NO. RANGKA : ${getVal('Noka')}\n• NO. MESIN : ${getVal('Nosin')}\n• NO. BPKB : ${getVal('BPKB')}\n• NO. STNK : ${getVal('STNK')}\n• TGL DAFTAR : ${getVal('Tgl')}\n• AGENT / APM : ${getVal('APM')}\n________________________________________\nDIKIRIM VIA APLIKASI "${appTitleName}"\n________________________________________\n🔗 DATA RAHASIA HANYA UNTUK INVESTIGASI APLIKASI INTELLIGENCE.\n________________________________________`}
                                 </div>
                                 <div className="mt-8 space-y-4 w-full">
                                     <button type="button" onClick={() => {
@@ -802,6 +853,90 @@
                                             </div>
                                         </div>
 
+                                        {/* KONTROL SISTEM & PEMELIHARAAN (DENGAN LIMIT HARIAN & MESAN SPAM) */}
+                                        <div className="glass-panel p-6 rounded-[2.5rem] border-white/5 space-y-5">
+                                            <h3 className="text-orange-400 font-black text-xs uppercase tracking-wider flex items-center gap-2">
+                                                🚨 KONTROL SISTEM & PEMELIHARAAN
+                                            </h3>
+
+                                            {/* MODE PEMELIHARAAN SAKLAR UTAMA */}
+                                            <div className="flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-white/5">
+                                                <div>
+                                                    <p className="text-xs font-black text-white">MODE PEMELIHARAAN</p>
+                                                    <p className="text-[9px] text-slate-500 font-bold">Kunci akses user sementara</p>
+                                                </div>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={async () => {
+                                                        const nextState = !isMaintenance;
+                                                        setIsMaintenance(nextState);
+                                                        showMsg(nextState ? "MODE PEMELIHARAAN AKTIF" : "MODE PEMELIHARAAN NONAKTIF");
+                                                        if (db) {
+                                                            try {
+                                                                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ isMaintenance: nextState }, { merge: true });
+                                                            } catch (e) {
+                                                                showMsg("GAGAL UPDATE SAKLAR PEMELIHARAAN");
+                                                                setIsMaintenance(!nextState);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all shadow-md ${isMaintenance ? 'bg-red-600 text-white shadow-red-600/30' : 'bg-slate-800 text-slate-400'}`}
+                                                >
+                                                    {isMaintenance ? 'ON (AKTIF)' : 'OFF (NONAKTIF)'}
+                                                </button>
+                                            </div>
+
+                                            {/* LIMIT PENCARIAN HARIAN */}
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center px-1">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase">LIMIT PENCARIAN HARIAN</label>
+                                                    <span className="text-[10px] font-black text-orange-400 uppercase">
+                                                        {dailyLimit === 0 || dailyLimit === '0' || !dailyLimit ? 'NOLIMIT' : `${dailyLimit} CARI/HARI`}
+                                                    </span>
+                                                </div>
+                                                <input 
+                                                    type="number" 
+                                                    value={dailyLimit} 
+                                                    onChange={(e) => setDailyLimit(e.target.value === '' ? 0 : parseInt(e.target.value, 10))} 
+                                                    placeholder="0" 
+                                                    className="w-full bg-black/60 border border-white/10 rounded-2xl p-4 text-sm font-black text-white outline-none font-mono-custom"
+                                                />
+                                            </div>
+
+                                            {/* PESAN NOTIFIKASI LIMIT HABIS */}
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase px-1">PESAN NOTIFIKASI LIMIT HABIS:</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={customLimitMsg} 
+                                                    onChange={(e) => setCustomLimitMsg(e.target.value)} 
+                                                    placeholder="ID ANDA TERDETEKSI SPAM HARAP TUNGGU..." 
+                                                    className="w-full bg-black/60 border border-white/10 rounded-2xl p-4 text-xs font-bold text-white outline-none"
+                                                />
+                                            </div>
+
+                                            {/* TOMBOL SIMPAN LIMIT & NOTIFIKASI */}
+                                            <button 
+                                                type="button" 
+                                                onClick={async () => {
+                                                    if (db) {
+                                                        try {
+                                                            await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({
+                                                                dailyLimit: parseInt(dailyLimit, 10) || 0,
+                                                                customLimitMsg: customLimitMsg
+                                                            }, { merge: true });
+                                                            showMsg("LIMIT & NOTIFIKASI BERHASIL DISIMPAN");
+                                                        } catch (e) {
+                                                            showMsg("GAGAL MENYIMPAN LIMIT HARIAN");
+                                                        }
+                                                    }
+                                                }}
+                                                className="w-full bg-orange-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20 active:scale-95 transition-all outline-none"
+                                            >
+                                                SIMPAN LIMIT & NOTIFIKASI
+                                            </button>
+                                        </div>
+
                                         {/* KONTROL API SERVER & DYNAMIC LINK DENGAN SAKLAR ON/OFF INDEPENDEN */}
                                         <div className="glass-panel p-6 rounded-[2.5rem] border-white/5 space-y-4">
                                             <h3 className="text-orange-400 font-black text-xs uppercase tracking-wider flex items-center gap-2">
@@ -812,7 +947,7 @@
                                             <div className="space-y-1.5">
                                                 <div className="flex justify-between items-center px-1">
                                                     <label className="text-[10px] font-black text-slate-400 uppercase">URL API UTAMA 1:</label>
-                                                    <span className={`text-[9px] font-black ${api1Active ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                    <span className={`text-[9px] font-black ${api1Active ? 'text-emerald-400' : 'text-red-500'}`}>
                                                         STATUS: {api1Active ? 'AKTIF' : 'NONAKTIF'}
                                                     </span>
                                                 </div>
@@ -830,10 +965,15 @@
                                                             setApi1Active(nextState);
                                                             showMsg(nextState ? "API 1 DIAKTIFKAN" : "API 1 DIMATIKAN");
                                                             if (db) {
-                                                                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ api1Active: nextState }, { merge: true });
+                                                                try {
+                                                                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ api1Active: nextState }, { merge: true });
+                                                                } catch (e) {
+                                                                    showMsg("GAGAL UPDATE API 1");
+                                                                    setApi1Active(!nextState);
+                                                                }
                                                             }
                                                         }}
-                                                        className={`px-4 rounded-2xl text-[10px] font-black uppercase transition-all whitespace-nowrap ${api1Active ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30' : 'bg-red-600/80 text-white'}`}
+                                                        className={`px-5 rounded-2xl text-[10px] font-black uppercase transition-all whitespace-nowrap shadow-md ${api1Active ? 'bg-emerald-600 text-white shadow-emerald-600/30' : 'bg-red-600 text-white shadow-red-600/30'}`}
                                                     >
                                                         {api1Active ? 'ON' : 'OFF'}
                                                     </button>
@@ -844,7 +984,7 @@
                                             <div className="space-y-1.5">
                                                 <div className="flex justify-between items-center px-1">
                                                     <label className="text-[10px] font-black text-slate-400 uppercase">URL API UTAMA 2:</label>
-                                                    <span className={`text-[9px] font-black ${api2Active ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                    <span className={`text-[9px] font-black ${api2Active ? 'text-emerald-400' : 'text-red-500'}`}>
                                                         STATUS: {api2Active ? 'AKTIF' : 'NONAKTIF'}
                                                     </span>
                                                 </div>
@@ -862,10 +1002,15 @@
                                                             setApi2Active(nextState);
                                                             showMsg(nextState ? "API 2 DIAKTIFKAN" : "API 2 DIMATIKAN");
                                                             if (db) {
-                                                                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ api2Active: nextState }, { merge: true });
+                                                                try {
+                                                                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ api2Active: nextState }, { merge: true });
+                                                                } catch (e) {
+                                                                    showMsg("GAGAL UPDATE API 2");
+                                                                    setApi2Active(!nextState);
+                                                                }
                                                             }
                                                         }}
-                                                        className={`px-4 rounded-2xl text-[10px] font-black uppercase transition-all whitespace-nowrap ${api2Active ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30' : 'bg-red-600/80 text-white'}`}
+                                                        className={`px-5 rounded-2xl text-[10px] font-black uppercase transition-all whitespace-nowrap shadow-md ${api2Active ? 'bg-emerald-600 text-white shadow-emerald-600/30' : 'bg-red-600 text-white shadow-red-600/30'}`}
                                                     >
                                                         {api2Active ? 'ON' : 'OFF'}
                                                     </button>
@@ -876,7 +1021,7 @@
                                             <div className="space-y-1.5">
                                                 <div className="flex justify-between items-center px-1">
                                                     <label className="text-[10px] font-black text-slate-400 uppercase">URL API UTAMA 3:</label>
-                                                    <span className={`text-[9px] font-black ${api3Active ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                    <span className={`text-[9px] font-black ${api3Active ? 'text-emerald-400' : 'text-red-500'}`}>
                                                         STATUS: {api3Active ? 'AKTIF' : 'NONAKTIF'}
                                                     </span>
                                                 </div>
@@ -894,10 +1039,15 @@
                                                             setApi3Active(nextState);
                                                             showMsg(nextState ? "API 3 DIAKTIFKAN" : "API 3 DIMATIKAN");
                                                             if (db) {
-                                                                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ api3Active: nextState }, { merge: true });
+                                                                try {
+                                                                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ api3Active: nextState }, { merge: true });
+                                                                } catch (e) {
+                                                                    showMsg("GAGAL UPDATE API 3");
+                                                                    setApi3Active(!nextState);
+                                                                }
                                                             }
                                                         }}
-                                                        className={`px-4 rounded-2xl text-[10px] font-black uppercase transition-all whitespace-nowrap ${api3Active ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30' : 'bg-red-600/80 text-white'}`}
+                                                        className={`px-5 rounded-2xl text-[10px] font-black uppercase transition-all whitespace-nowrap shadow-md ${api3Active ? 'bg-emerald-600 text-white shadow-emerald-600/30' : 'bg-red-600 text-white shadow-red-600/30'}`}
                                                     >
                                                         {api3Active ? 'ON' : 'OFF'}
                                                     </button>
@@ -908,15 +1058,19 @@
                                                 type="button" 
                                                 onClick={async () => {
                                                     if (db) {
-                                                        await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({
-                                                            api1: customApi1,
-                                                            api2: customApi2,
-                                                            api3: customApi3,
-                                                            api1Active,
-                                                            api2Active,
-                                                            api3Active
-                                                        }, { merge: true });
-                                                        showMsg("PENGATURAN API SERVER DISIMPAN");
+                                                        try {
+                                                            await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({
+                                                                api1: customApi1,
+                                                                api2: customApi2,
+                                                                api3: customApi3,
+                                                                api1Active,
+                                                                api2Active,
+                                                                api3Active
+                                                            }, { merge: true });
+                                                            showMsg("PENGATURAN API SERVER DISIMPAN");
+                                                        } catch (e) {
+                                                            showMsg("GAGAL MENYIMPAN API SERVER");
+                                                        }
                                                     }
                                                 }}
                                                 className="w-full bg-orange-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20 active:scale-95 transition-all outline-none"
@@ -940,9 +1094,14 @@
                                                     onClick={async () => {
                                                         const nextState = !app1Maint;
                                                         setApp1Maint(nextState);
-                                                        showMsg(nextState ? "MAINTENANCE APP 1 ON" : "MAINTENANCE APP 1 OFF");
+                                                        showMsg(nextState ? "MAINTENANCE APP 1 ON (KUNCI)" : "MAINTENANCE APP 1 OFF (BUKA)");
                                                         if (db) {
-                                                            await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ app1Maint: nextState }, { merge: true });
+                                                            try {
+                                                                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ app1Maint: nextState }, { merge: true });
+                                                            } catch (e) {
+                                                                showMsg("GAGAL UPDATE SAKLAR APP 1");
+                                                                setApp1Maint(!nextState);
+                                                            }
                                                         }
                                                     }}
                                                     className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${app1Maint ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-slate-800 text-slate-400'}`}
@@ -962,9 +1121,14 @@
                                                     onClick={async () => {
                                                         const nextState = !app2Maint;
                                                         setApp2Maint(nextState);
-                                                        showMsg(nextState ? "MAINTENANCE APP 2 ON" : "MAINTENANCE APP 2 OFF");
+                                                        showMsg(nextState ? "MAINTENANCE APP 2 ON (KUNCI)" : "MAINTENANCE APP 2 OFF (BUKA)");
                                                         if (db) {
-                                                            await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ app2Maint: nextState }, { merge: true });
+                                                            try {
+                                                                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ app2Maint: nextState }, { merge: true });
+                                                            } catch (e) {
+                                                                showMsg("GAGAL UPDATE SAKLAR APP 2");
+                                                                setApp2Maint(!nextState);
+                                                            }
                                                         }
                                                     }}
                                                     className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${app2Maint ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-slate-800 text-slate-400'}`}
@@ -984,9 +1148,14 @@
                                                     onClick={async () => {
                                                         const nextState = !app3Maint;
                                                         setApp3Maint(nextState);
-                                                        showMsg(nextState ? "MAINTENANCE APP 3 ON" : "MAINTENANCE APP 3 OFF");
+                                                        showMsg(nextState ? "MAINTENANCE APP 3 ON (KUNCI)" : "MAINTENANCE APP 3 OFF (BUKA)");
                                                         if (db) {
-                                                            await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ app3Maint: nextState }, { merge: true });
+                                                            try {
+                                                                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ app3Maint: nextState }, { merge: true });
+                                                            } catch (e) {
+                                                                showMsg("GAGAL UPDATE SAKLAR APP 3");
+                                                                setApp3Maint(!nextState);
+                                                            }
                                                         }
                                                     }}
                                                     className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${app3Maint ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-slate-800 text-slate-400'}`}
@@ -1006,9 +1175,14 @@
                                                     onClick={async () => {
                                                         const nextState = !isMaintenance;
                                                         setIsMaintenance(nextState);
-                                                        showMsg(nextState ? "MAINTENANCE GLOBAL ON" : "MAINTENANCE GLOBAL OFF");
+                                                        showMsg(nextState ? "MAINTENANCE GLOBAL ON (KUNCI TOTAL)" : "MAINTENANCE GLOBAL OFF (BUKA TOTAL)");
                                                         if (db) {
-                                                            await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ isMaintenance: nextState }, { merge: true });
+                                                            try {
+                                                                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection(COLLECTION_SETTINGS).doc('main').set({ isMaintenance: nextState }, { merge: true });
+                                                            } catch (e) {
+                                                                showMsg("GAGAL UPDATE SAKLAR GLOBAL");
+                                                                setIsMaintenance(!nextState);
+                                                            }
                                                         }
                                                     }}
                                                     className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${isMaintenance ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-slate-800 text-slate-400'}`}
